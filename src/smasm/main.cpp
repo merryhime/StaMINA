@@ -1,4 +1,4 @@
-// This file is part of the lumina project.
+// This file is part of the stamina project.
 // Copyright (c) 2020 MerryMage
 // SPDX-License-Identifier: 0BSD
 
@@ -245,6 +245,13 @@ bool is_whitespace(std::optional<char> c) {
 
 Token Tokenizer::next_token() {
     skip_whitespace();
+
+    if (ch == ';') {
+        // comment
+        while (ch != '\n') {
+            next_ch();
+        }
+    }
 
     pos = ch_pos;
 

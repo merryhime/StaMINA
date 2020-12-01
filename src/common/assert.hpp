@@ -1,4 +1,4 @@
-// This file is part of the lumina project.
+// This file is part of the stamina project.
 // Copyright (c) 2020 MerryMage
 // SPDX-License-Identifier: 0BSD
 
@@ -6,7 +6,7 @@
 
 #include <fmt/format.h>
 
-namespace lumina {
+namespace stamina {
 
 [[noreturn]] void Terminate(fmt::string_view msg, fmt::format_args args);
 
@@ -19,7 +19,7 @@ template <typename... Ts>
 
 } // namespace detail
 
-} // namespace lumina
+} // namespace stamina
 
 #if defined(NDEBUG)
     #if defined(__clang) || defined(__GNUC__)
@@ -40,16 +40,16 @@ template <typename... Ts>
 #define ASSERT(expr)                                                                        \
     [&]{                                                                                    \
         if (!(expr)) [[unlikely]] {                                                         \
-            ::lumina::detail::TerminateHelper(#expr);                                       \
+            ::stamina::detail::TerminateHelper(#expr);                                      \
         }                                                                                   \
     }()
 #define ASSERT_MSG(expr, ...)                                                               \
     [&]{                                                                                    \
         if (!(expr)) [[unlikely]] {                                                         \
-            ::lumina::detail::TerminateHelper(#expr "\nMessage: " __VA_ARGS__);             \
+            ::stamina::detail::TerminateHelper(#expr "\nMessage: " __VA_ARGS__);            \
         }                                                                                   \
     }()
-#define ASSERT_FALSE(...) [[unlikely]] ::lumina::detail::TerminateHelper("false\nMessage: " __VA_ARGS__)
+#define ASSERT_FALSE(...) [[unlikely]] ::stamina::detail::TerminateHelper("false\nMessage: " __VA_ARGS__)
 
 #if defined(NDEBUG)
     #define DEBUG_ASSERT(expr) ASSUME(expr)
