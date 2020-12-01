@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-project(lumina CXX)
+project(stamina CXX)
 
 # Project options
-option(LUMINA_WARNINGS_AS_ERRORS "Warnings as errors" ON)
+option(STAMINA_WARNINGS_AS_ERRORS "Warnings as errors" ON)
 
 # Default to a Release build
 if (NOT CMAKE_BUILD_TYPE)
@@ -30,7 +30,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/CMakeModules")
 
 # Compiler flags
 if (MSVC)
-    set(LUMINA_CXX_FLAGS
+    set(STAMINA_CXX_FLAGS
         /std:c++latest
         /experimental:external
         /external:W0
@@ -56,17 +56,17 @@ if (MSVC)
         /bigobj             # Increase number of sections in .obj files
         /DNOMINMAX)
 
-    if (LUMINA_WARNINGS_AS_ERRORS)
-        list(APPEND LUMINA_CXX_FLAGS /WX)
+    if (STAMINA_WARNINGS_AS_ERRORS)
+        list(APPEND STAMINA_CXX_FLAGS /WX)
     endif()
 
     if (CMAKE_VS_PLATFORM_TOOLSET MATCHES "LLVM-vs[0-9]+")
-        list(APPEND LUMINA_CXX_FLAGS
+        list(APPEND STAMINA_CXX_FLAGS
              -Qunused-arguments
              -Wno-missing-braces)
     endif()
 else()
-    set(LUMINA_CXX_FLAGS
+    set(STAMINA_CXX_FLAGS
         -Wall
         -Wextra
         -Wcast-qual
@@ -75,15 +75,41 @@ else()
         -Wfatal-errors
         -Wno-missing-braces)
 
-    if (LUMINA_WARNINGS_AS_ERRORS)
-        list(APPEND LUMINA_CXX_FLAGS -Werror)
+    if (STAMINA_WARNINGS_AS_ERRORS)
+        list(APPEND STAMINA_CXX_FLAGS -Werror)
     endif()
 endif()
 
 # Enable unit-testing
 enable_testing(true)
 
+# Pull in externals CMakeLists for libs where available
+add_subdirectory(externals)
+
 # Project files
-add_executable(lumina main.cpp)
+
+add_library(common
+    src/common/assert.cpp
+    src/common/assert.hpp
+    src/common/common_types.hpp
+)
+target_include_directories(common PUBLIC src)
+target_compile_options(common PRIVATE ${STAMINA_CXX_FLAGS})
+target_link_libraries(common PUBLIC fmt)
+
+add_executable(smasm
+    src/smasm/main.cpp
+)
+target_include_directories(smasm PUBLIC src)
+target_compile_options(smasm PRIVATE ${STAMINA_CXX_FLAGS})
+target_link_libraries(smasm PRIVATE common)
+
+add_executable(stamina
+    src/stamina/main.cpp
+)
+target_include_directories(stamina PUBLIC src)
+target_compile_options(stamina PRIVATE ${STAMINA_CXX_FLAGS})
+target_link_libraries(stamina PRIVATE common)
+
 include(CreateDirectoryGroups)
-create_target_directory_groups(lumina)
+create_target_directory_groups(stamina)
