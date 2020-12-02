@@ -97,12 +97,21 @@ target_include_directories(common PUBLIC src)
 target_compile_options(common PRIVATE ${STAMINA_CXX_FLAGS})
 target_link_libraries(common PUBLIC fmt)
 
+add_library(smasm-lib
+    src/smasm/lexer.cpp
+    src/smasm/lexer.hpp
+    src/smasm/position.hpp
+)
+target_include_directories(smasm-lib PUBLIC src)
+target_compile_options(smasm-lib PRIVATE ${STAMINA_CXX_FLAGS})
+target_link_libraries(smasm-lib PUBLIC common fmt)
+
 add_executable(smasm
     src/smasm/main.cpp
 )
 target_include_directories(smasm PUBLIC src)
 target_compile_options(smasm PRIVATE ${STAMINA_CXX_FLAGS})
-target_link_libraries(smasm PRIVATE common)
+target_link_libraries(smasm PRIVATE common smasm-lib)
 
 add_executable(stamina
     src/stamina/main.cpp
@@ -111,5 +120,17 @@ target_include_directories(stamina PUBLIC src)
 target_compile_options(stamina PRIVATE ${STAMINA_CXX_FLAGS})
 target_link_libraries(stamina PRIVATE common)
 
+add_executable(stamina-tests
+    src/smasm/lexer_tests.cpp
+    src/tests/main.cpp
+)
+target_include_directories(stamina-tests PUBLIC src)
+target_compile_options(stamina-tests PRIVATE ${STAMINA_CXX_FLAGS})
+target_link_libraries(stamina-tests PRIVATE catch common smasm-lib)
+
 include(CreateDirectoryGroups)
+create_target_directory_groups(common)
+create_target_directory_groups(smasm-lib)
+create_target_directory_groups(smasm)
 create_target_directory_groups(stamina)
+create_target_directory_groups(stamina-tests)

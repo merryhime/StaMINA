@@ -2,6 +2,5 @@
 // Copyright (c) 2020 MerryMage
 // SPDX-License-Identifier: 0BSD
 
-int main() {
-    return 0;
-}
+#define CATCH_CONFIG_MAIN
+#include <catch.hpp>
