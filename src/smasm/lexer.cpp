@@ -2,9 +2,11 @@
 // Copyright (c) 2020 MerryMage
 // SPDX-License-Identifier: 0BSD
 
+#include <set>
 #include <string>
 #include "common/assert.hpp"
 #include "common/common_types.hpp"
+#include "common/string_util.hpp"
 #include "smasm/lexer.hpp"
 
 namespace stamina {
@@ -47,6 +49,22 @@ int digit_value(char c) {
 bool is_whitespace(std::optional<char> c) {
     return c == 0x20 || c == 0x09 || c == 0x0D;
 }
+
+const std::set<std::string> mnemonics {
+#define INSTRUCTION(mnemonic, ...) #mnemonic,
+#define COMPAREINST(...)
+#include "common/instructions.inc"
+#undef INSTRUCTION
+#undef COMPAREINST
+};
+
+const std::set<std::string> conds {
+#define INSTRUCTION(...)
+#define COMPAREINST(mnemonic, cond, ...) #cond,
+#include "common/instructions.inc"
+#undef INSTRUCTION
+#undef COMPAREINST
+};
 
 }
 
@@ -279,11 +297,43 @@ Token Tokenizer::lex_directive() {
 }
 
 Token Tokenizer::lex_identifier(char c) {
-    std::string ident{c};
-    while (is_letter(ch) || is_decimal_digit(ch)) {
-        ident += *ch;
-        next_ch();
+    const std::string ident = [c, this]{
+        std::string ret{c};
+        while (is_letter(ch) || is_decimal_digit(ch)) {
+            ret += *ch;
+            next_ch();
+        }
+        return ret;
+    }();
+    const std::string upper_ident = toupper(ident);
+
+    if (mnemonics.count(upper_ident) > 0) {
+        return Token{pos, Token::Type::Mnemonic, upper_ident};
     }
+
+    if (upper_ident == "CMP" || upper_ident == "CMPI") {
+        if (ch != '/') {
+            return Token{pos, Token::Type::Error, ident + " must be followed by /"};
+        }
+        next_ch();
+
+        const std::string cond = [this]{
+            std::string ret;
+            while (is_letter(ch)) {
+                ret += *ch;
+                next_ch();
+            }
+            return ret;
+        }();
+        const std::string upper_cond = toupper(cond);
+
+        if (conds.count(upper_cond) == 0) {
+            return Token{pos, Token::Type::Error, ident + " must be followed by a valid condition, " + cond + " is not a valid condition"};
+        }
+
+        return Token{pos, Token::Type::Mnemonic, upper_ident + '/' + upper_cond};
+    }
+
     return Token{pos, Token::Type::Identifier, ident};
 }
 
@@ -311,6 +361,24 @@ Token Tokenizer::lex_numerical(char c) {
         }
     }
     return numeric_fn(digit_value(c), is_decimal_digit, 10);
+}
+
+StringTokenizer::StringTokenizer(std::string str) : str(str) {
+    next_ch();
+}
+
+void StringTokenizer::next_ch() {
+    if (ch == '\n') {
+        ch_pos = ch_pos.next_line();
+    } else {
+        ch_pos = ch_pos.advance(1);
+    }
+
+    if (index >= str.size()) {
+        ch = std::nullopt;
+        return;
+    }
+    ch = str[index++];
 }
 
 }

@@ -17,6 +17,7 @@ struct Token final {
         EndOfFile,
         NewLine,
         Identifier,
+        Mnemonic,
         Directive,
         StringLit,
         NumericLit,
@@ -80,6 +81,18 @@ private:
     bool can_newline = true;
 };
 
+struct StringTokenizer final : public Tokenizer {
+public:
+    explicit StringTokenizer(std::string str);
+
+protected:
+    void next_ch() override;
+
+private:
+    size_t index = 0;
+    std::string str;
+};
+
 }
 
 template <>
@@ -98,6 +111,8 @@ struct fmt::formatter<stamina::Token::Type> {
                 return "NewLine";
             case stamina::Token::Type::Identifier:
                 return "Identifier";
+            case stamina::Token::Type::Mnemonic:
+                return "Mnemonic";
             case stamina::Token::Type::Directive:
                 return "Directive";
             case stamina::Token::Type::StringLit:

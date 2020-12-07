@@ -10,32 +10,6 @@
 
 using namespace stamina;
 
-struct StringTokenizer final : public Tokenizer {
-public:
-    explicit StringTokenizer(std::string str) : str(str) {
-        next_ch();
-    }
-
-protected:
-    void next_ch() override {
-        if (ch == '\n') {
-            ch_pos = ch_pos.next_line();
-        } else {
-            ch_pos = ch_pos.advance(1);
-        }
-
-        if (index >= str.size()) {
-            ch = std::nullopt;
-            return;
-        }
-        ch = str[index++];
-    }
-
-private:
-    size_t index = 0;
-    std::string str;
-};
-
 TEST_CASE("tokenizer: Test 1", "[smasm]") {
     StringTokenizer tok{".def foo foo+3*4-a^b==1"};
     std::vector<Token> tokens;
@@ -67,3 +41,27 @@ TEST_CASE("tokenizer: Test 1", "[smasm]") {
 
     REQUIRE(expect == tokens);
 }
+
+TEST_CASE("tokenizer: cmp", "[smasm]") {
+    StringTokenizer tok{"cmpi/eq r0, 34"};
+    std::vector<Token> tokens;
+
+    while (true) {
+        const auto t = tok.next_token();
+        if (t.type == Token::Type::EndOfFile) {
+            break;
+        }
+        tokens.push_back(t);
+    }
+
+    std::vector<Token> expect{
+        Token{Position{"(unknown)", 1, 1}, Token::Type::Mnemonic, "CMPI/EQ"},
+        Token{Position{"(unknown)", 1, 9}, Token::Type::Identifier, "r0"},
+        Token{Position{"(unknown)", 1, 11}, Token::Type::Comma},
+        Token{Position{"(unknown)", 1, 13}, Token::Type::NumericLit, 34},
+        Token{Position{"(unknown)", 1, 15}, Token::Type::NewLine},
+    };
+
+    REQUIRE(expect == tokens);
+}
+
