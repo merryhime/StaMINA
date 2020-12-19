@@ -21,6 +21,10 @@ bool is_decimal_digit(std::optional<char> c) {
     return (c >= '0' && c <= '9');
 }
 
+bool is_identifier_char(std::optional<char> c) {
+    return is_letter(c) || is_decimal_digit(c) || c == '.' || c == '_';
+}
+
 bool is_octal_digit(std::optional<char> c) {
     return (c >= '0' && c <= '7');
 }
@@ -69,21 +73,25 @@ const std::set<std::string> conds {
 }
 
 Token Tokenizer::next_token() {
-    skip_whitespace();
+    while (is_whitespace(ch)) {
+        // skip whitespace
+        advance();
+    }
 
     if (ch == ';') {
-        // comment
+        // skip comment
         while (ch != '\n') {
-            next_ch();
+            advance();
         }
     }
 
     pos = ch_pos;
+    source_code.clear();
 
     if (ch == '\n') {
         next_ch();
         if (can_newline) {
-            return Token{pos, Token::Type::NewLine};
+            return make_token(Token::Type::NewLine);
         }
         return next_token();
     }
@@ -91,9 +99,9 @@ Token Tokenizer::next_token() {
     if (ch == std::nullopt) {
         if (can_newline) {
             can_newline = false;
-            return Token{pos, Token::Type::NewLine};
+            return make_token(Token::Type::NewLine);
         }
-        return Token{pos, Token::Type::EndOfFile};
+        return make_token(Token::Type::EndOfFile);
     }
 
     can_newline = false;
@@ -110,82 +118,88 @@ Token Tokenizer::next_token() {
     case '`':
         can_newline = true;
         return lex_raw_string();
-    case '.':
+    case '@':
+        if (maybe_ch('@')) {
+            return make_token(Token::Type::TokCat);
+        }
         can_newline = true;
         return lex_directive();
     case ',':
-        return Token{pos, Token::Type::Comma};
+        return make_token(Token::Type::Comma);
     case '(':
-        return Token{pos, Token::Type::LParen};
+        return make_token(Token::Type::LParen);
     case ')':
         can_newline = true;
-        return Token{pos, Token::Type::RParen};
+        return make_token(Token::Type::RParen);
     case '+':
-        return Token{pos, Token::Type::Plus};
+        return make_token(Token::Type::Plus);
     case '-':
-        return Token{pos, Token::Type::Minus};
+        return make_token(Token::Type::Minus);
     case '*':
-        return Token{pos, Token::Type::Mul};
+        return make_token(Token::Type::Mul);
     case '/':
-        return Token{pos, Token::Type::Div};
+        return make_token(Token::Type::Div);
     case '%':
-        return Token{pos, Token::Type::Mod};
+        return make_token(Token::Type::Mod);
     case '^':
-        return Token{pos, Token::Type::Xor};
+        return make_token(Token::Type::Xor);
     case '<':
         if (maybe_ch('<')) {
-            return Token{pos, Token::Type::ShLeft};
+            return make_token(Token::Type::ShLeft);
         }
         if (maybe_ch('=')) {
-            return Token{pos, Token::Type::LessEqual};
+            return make_token(Token::Type::LessEqual);
         }
-        return Token{pos, Token::Type::Less};
+        return make_token(Token::Type::Less);
     case '>':
         if (maybe_ch('>')) {
-            return Token{pos, Token::Type::ShRight};
+            return make_token(Token::Type::ShRight);
         }
         if (maybe_ch('=')) {
-            return Token{pos, Token::Type::GreaterEqual};
+            return make_token(Token::Type::GreaterEqual);
         }
-        return Token{pos, Token::Type::Greater};
+        return make_token(Token::Type::Greater);
     case '=':
         if (maybe_ch('=')) {
-            return Token{pos, Token::Type::Equal};
+            return make_token(Token::Type::Equal);
         }
-        return Token{pos, Token::Type::Error, "Single equals sign is not a valid token"};
+        return make_token(Token::Type::Error, "Single equals sign is not a valid token");
     case '!':
         if (maybe_ch('=')) {
-            return Token{pos, Token::Type::NotEqual};
+            return make_token(Token::Type::NotEqual);
         }
-        return Token{pos, Token::Type::Not};
+        return make_token(Token::Type::LogicNot);
+    case '~':
+        return make_token(Token::Type::BitNot);
     case '&':
         if (maybe_ch('&')) {
-            return Token{pos, Token::Type::LogicAnd};
+            return make_token(Token::Type::LogicAnd);
         }
-        return Token{pos, Token::Type::BitAnd};
+        return make_token(Token::Type::BitAnd);
     case '|':
         if (maybe_ch('|')) {
-            return Token{pos, Token::Type::LogicOr};
+            return make_token(Token::Type::LogicOr);
         }
-        return Token{pos, Token::Type::BitOr};
+        return make_token(Token::Type::BitOr);
     }
 
-    if (is_letter(prev_ch)) {
-        can_newline = true;
-        return lex_identifier(prev_ch);
-    }
     if (is_decimal_digit(prev_ch)) {
         can_newline = true;
         return lex_numerical(prev_ch);
     }
+    if (is_identifier_char(prev_ch)) {
+        can_newline = true;
+        return lex_identifier(prev_ch);
+    }
 
-    return Token{pos, Token::Type::Error, "Unknown character"};
+    return make_token(Token::Type::Error, "Unknown character");
 }
 
-void Tokenizer::skip_whitespace() {
-    while (is_whitespace(ch)) {
-        next_ch();
+void Tokenizer::next_ch() {
+    if (ch) {
+        source_code += *ch;
     }
+    advance();
 }
 
 bool Tokenizer::maybe_ch(char check_ch) {
@@ -252,11 +266,11 @@ Token Tokenizer::lex_translated_string() {
         if (const auto c = lex_single_translated_char()) {
             str += *c;
         } else {
-            return Token{pos, Token::Type::Error, "invalid character in string"};
+            return make_token(Token::Type::Error, "invalid character in string");
         }
     }
     next_ch();
-    return Token{pos, Token::Type::StringLit, str};
+    return make_token(Token::Type::StringLit, str);
 }
 
 Token Tokenizer::lex_char() {
@@ -264,42 +278,42 @@ Token Tokenizer::lex_char() {
     if (const auto c = lex_single_translated_char()) {
         value = *c;
     } else {
-        return Token{pos, Token::Type::Error, "invalid character"};
+        return make_token(Token::Type::Error, "invalid character");
     }
     next_ch();
     if (ch != '\'') {
-        return Token{pos, Token::Type::Error, "character literal can only contain single character"};
+        return make_token(Token::Type::Error, "character literal can only contain single character");
     }
     next_ch();
-    return Token{pos, Token::Type::NumericLit, value};
+    return make_token(Token::Type::NumericLit, value);
 }
 
 Token Tokenizer::lex_raw_string() {
     std::string str;
     while (ch != '`') {
         if (ch == std::nullopt) {
-            return Token{pos, Token::Type::Error, "invalid end-of-file in raw string"};
+            return make_token(Token::Type::Error, "invalid end-of-file in raw string");
         }
         str += *ch;
         next_ch();
     }
     next_ch();
-    return Token{pos, Token::Type::StringLit, str};
+    return make_token(Token::Type::StringLit, str);
 }
 
 Token Tokenizer::lex_directive() {
     std::string ident;
-    while (is_letter(ch) || is_decimal_digit(ch)) {
+    while (is_identifier_char(ch)) {
         ident += *ch;
         next_ch();
     }
-    return Token{pos, Token::Type::Directive, ident};
+    return make_token(Token::Type::Directive, ident);
 }
 
 Token Tokenizer::lex_identifier(char c) {
     const std::string ident = [c, this]{
         std::string ret{c};
-        while (is_letter(ch) || is_decimal_digit(ch)) {
+        while (is_identifier_char(ch)) {
             ret += *ch;
             next_ch();
         }
@@ -308,12 +322,12 @@ Token Tokenizer::lex_identifier(char c) {
     const std::string upper_ident = toupper(ident);
 
     if (mnemonics.count(upper_ident) > 0) {
-        return Token{pos, Token::Type::Mnemonic, upper_ident};
+        return make_token(Token::Type::Mnemonic, upper_ident);
     }
 
     if (upper_ident == "CMP" || upper_ident == "CMPI") {
         if (ch != '/') {
-            return Token{pos, Token::Type::Error, ident + " must be followed by /"};
+            return make_token(Token::Type::Error, ident + " must be followed by /");
         }
         next_ch();
 
@@ -328,13 +342,13 @@ Token Tokenizer::lex_identifier(char c) {
         const std::string upper_cond = toupper(cond);
 
         if (conds.count(upper_cond) == 0) {
-            return Token{pos, Token::Type::Error, ident + " must be followed by a valid condition, " + cond + " is not a valid condition"};
+            return make_token(Token::Type::Error, ident + " must be followed by a valid condition, " + cond + " is not a valid condition");
         }
 
-        return Token{pos, Token::Type::Mnemonic, upper_ident + '/' + upper_cond};
+        return make_token(Token::Type::Mnemonic, upper_ident + '/' + upper_cond);
     }
 
-    return Token{pos, Token::Type::Identifier, ident};
+    return make_token(Token::Type::Identifier, ident);
 }
 
 Token Tokenizer::lex_numerical(char c) {
@@ -343,10 +357,10 @@ Token Tokenizer::lex_numerical(char c) {
             value = value * radix + digit_value(*ch);
             next_ch();
             if (value < 0) {
-                return Token{pos, Token::Type::Error, "number literal overflow"};
+                return make_token(Token::Type::Error, "number literal overflow");
             }
         }
-        return Token{pos, Token::Type::NumericLit, value};
+        return make_token(Token::Type::NumericLit, value);
     };
 
     if (c == '0') {
@@ -363,11 +377,15 @@ Token Tokenizer::lex_numerical(char c) {
     return numeric_fn(digit_value(c), is_decimal_digit, 10);
 }
 
-StringTokenizer::StringTokenizer(std::string str) : str(str) {
-    next_ch();
+Token Tokenizer::make_token(Token::Type type, std::variant<std::monostate, std::string, s64> payload) {
+    return Token{pos, type, payload, source_code};
 }
 
-void StringTokenizer::next_ch() {
+StringTokenizer::StringTokenizer(std::string str) : str(str) {
+    advance();
+}
+
+void StringTokenizer::advance() {
     if (ch == '\n') {
         ch_pos = ch_pos.next_line();
     } else {
